@@ -1,0 +1,1089 @@
+---
+title: "Global Trigger Tool Automation"
+output: 
+  pdf_document: 
+    keep_tex: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath("/Users/wabommel/Thesis/finalThesis/RStudio/GTT_Workspace/Data"))
+knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=60),tidy=TRUE, warning=FALSE)
+```
+
+# Installation und Laden notwendiger Pakete
+
+* Paket readxl: Wird zum Einlesen der notwendigen Daten verwendet
+* Paket [ggplot2](https://cran.r-project.org/web/packages/readxl/readxl.pdf): Zur Erstellung von grafischen Auswertungen eignet sich das Paket als Erweiterung zur Basisfunktionalität zur Erstellung von grafischen Darstellungen. Für das Paket existiert auch ein [CheatSheet](https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf)
+* Paket ggubr:
+* Paket data.table:
+* Paket [plyr](https://cran.r-project.org/web/packages/plyr/plyr.pdf): Zur Vorbereitung der Daten auf die eigentliche Analyse sind zahlreiche Umformungen und Extraktionen notwendig. Auch für wichtige plyr Funktionen existiert ein [CheatSheet Data Wrangling](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf)
+* Paket [tidyr](https://cran.r-project.org/web/packages/tidyr/tidyr.pdf): Auch dieses Paket stellt Funktionen zur Verfügung um Daten zu bereinigen und umzuformen. Das [CheatSheet Data Wrangling](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) umfasst auch einige wichtige tidyr Funktionalitäten.
+* Paket [reshape](ftp://cran.r-project.org/pub/R/web/packages/reshape/reshape.pdf): Wie die beiden vorangegangenen Pakete wird auch dieses Paket zur Umformungen der Eingangsdaten verwendet. 
+* Paket [RColorBrewer](https://cran.r-project.org/web/packages/RColorBrewer/RColorBrewer.pdf): Um mehr Farbpaletten zur graphischen Darstellung zu nutzen, gibt es diverse Pakete. In diesem Projekt wird unter andrem der RColorBrewer genutzt. Ein sehr gutes Dokument zum Thema Color Brewer Pakete ist dieses [CheatSheet](https://www.nceas.ucsb.edu/~frazier/RSpatialGuides/colorPaletteCheatsheet.pdf) 
+* Paket [ModelMetrics](https://www.rdocumentation.org/packages/ModelMetrics/versions/1.2.2): Zur Berechnung von statistischen Werten wie PPV, Kappa Coeffizient kann dieses Paket genutzt werden. 
+* Paket [expss](https://cran.r-project.org/web/packages/expss/vignettes/tables-with-labels.html): Stellt Tabulationsfunktionen zur Verfügung, zu besseren Darstellung. 
+* Paket [kableExtra](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html): Stellt diverse Stylings von Tabellen zur Verfügung. 
+* Paket [janitor](https://cran.r-project.org/web/packages/janitor/index.html): Erweiterung einer Tabelle um eine Totals Reihe.
+
+
+```{r load}
+if("readxl" %in% rownames(installed.packages()) == FALSE) {install.packages("readxl")}
+library(readxl, warn.conflicts = FALSE) #to import excel files, check if lib is installed
+if("ggplot2" %in% rownames(installed.packages()) == FALSE) {install.packages("ggplot2")}
+library(ggplot2, warn.conflicts = FALSE) #to visualize data with bar charts
+if("reshape" %in% rownames(installed.packages()) == FALSE) {install.packages("reshape")}
+library(reshape, warn.conflicts = FALSE) #to reshape data
+if("ggpubr" %in% rownames(installed.packages()) == FALSE) {install.packages("ggpubr")}
+library(ggpubr, warn.conflicts = FALSE) #to combine multiple ggplots in one graph, as well as, over multiple pages, using helper functions available in the ggpubr R package
+if("data.table" %in% rownames(installed.packages()) == FALSE) {install.packages("data.table")}
+library(data.table, warn.conflicts = FALSE)
+if("plyr" %in% rownames(installed.packages()) == FALSE) {install.packages("plyr")}
+library(plyr, warn.conflicts = FALSE)
+if("RColorBrewer" %in% rownames(installed.packages()) == FALSE) {install.packages("RColorBrewer")}
+library(RColorBrewer, warn.conflicts = FALSE) 
+if("ModelMetrics" %in% rownames(installed.packages()) == FALSE) {install.packages("ModelMetrics")}
+library(ModelMetrics, warn.conflicts = FALSE) 
+if("tidyr" %in% rownames(installed.packages()) == FALSE) {install.packages("tidyr")}
+library(tidyr, warn.conflicts = FALSE) 
+if("dplyr" %in% rownames(installed.packages()) == FALSE) {install.packages("dplyr")}
+library(dplyr, warn.conflicts = FALSE)
+if("expss" %in% rownames(installed.packages()) == FALSE) {install.packages("expss")}
+library(expss, warn.conflicts = FALSE)
+library(knitr, warn.conflicts = FALSE)
+if("kableExtra" %in% rownames(installed.packages()) == FALSE) {install.packages("kableExtra")}
+library(kableExtra, warn.conflicts = FALSE)
+if("janitor" %in% rownames(installed.packages()) == FALSE) {install.packages("janitor")}
+library(janitor, warn.conflicts = FALSE)
+if("scales" %in% rownames(installed.packages()) == FALSE) {install.packages("scales")}
+library(scales, warn.conflicts = FALSE)
+```
+
+# Projekt Workspace
+
+Innerhalb des Projektordner befinden sich:
+
+* die GTT.Rmd Datei
+* der Ordner inputData
+* der Ordner outputData
+
+# Initialisierung - Einlesen notwendiger Dateien
+
+Voraussetzung für ein erfolgreiches Einlesen ist das korrekte Setzen des "Working Directory" welches zu Beginn über den r setup Chunk stattgefunden hat. In dem oben angegebenen Verzeichnis finden sich die einzulesenden Dateien wieder. Sollte die einzulesenden Daten in einem anderern Verzeichnis liegen, ist beim Einlesen entweder der absolute Pfad anzugeben oder das root Verzeichnis des Projektes anzupassen.
+
+Die Auswertung der manuellen Reviews sowie die automatische Suche nach Triggern basiert auf einer Vielzahl von Dateien, welche in der Phase Initialisierung eingelesen werden. 
+
+1. Einlesen der Ergebnisse der manuellen Reviews
+2. Einlesen aller P21 Dateien: OPS, ICD, FALL, FAB und fallcode_intern (fallcode_intern ist keine offizielle P21 Datei, allerdings werden die Originalfallnummern anonymisiert und in dieser Datei erfolgt die Zuordnung der anonymisierten Fallnummern zu den Fallnummern im Krankenhausinformationssystem)
+3 Einlesen aller Daten der Anästhesie Protokolle für eine Reihe von chirurgischen Triggern
+4. Einlesen aller Fallnummern von entlassenen Patienten für die Monate Juli und August 2018 für die Pilotkliniken 1 und G.
+
+```{r readFiles}
+#LOAD MANUEL REVIEW DATA
+manuell<-read_excel("manuellNEU.xlsx")
+##Beginn DATA LOAD needed for automation of trigger search##
+#LOAD P21 Data
+fall_intern<-read.csv("FALL_intern.csv", header=TRUE, sep=";")
+fab_intern<-read.csv("FAB_intern.csv", header=TRUE, sep=";")
+icd_intern<-read.csv("ICD_intern.csv", header=TRUE, sep=";")
+ops_intern<-read.csv("OPS_intern.csv", header=TRUE, sep=";")
+fallcode_intern<-read.csv("FALLCODE_INTERN.csv", header=TRUE, sep=";")
+#LOAD ANEDOK results for triggers related to surgery
+k2<-read_excel("k2.xlsx")
+k3<-read_excel("k3.xlsx")
+k4<-read_excel("k4.xlsx")
+k6<-read_excel("k6.xlsx")
+k13<-read_excel("k13.xlsx")
+k14<-read_excel("k14.xlsx")
+k15<-read_excel("k15.xlsx")
+k16.1<-read_excel("k16.1.xlsx")
+#load fall statistic data - relevant for trigger G7
+g7<-read_excel("QM-10_Sturz_2018.xls",sheet = 2)
+#load ORBIS reporting results
+m2<-read.csv("m2.csv", header=TRUE, sep=";")
+m3<-read.csv("m3.csv", header=TRUE, sep=";")
+m4.bz<-read.csv("m4.bz.csv", header=TRUE, sep=";")
+m4.gluk<-read.csv("m4.gluk.csv", header=TRUE, sep=";")
+m5.krea<-read.csv("m5.krea.csv", header=TRUE, sep=";")
+m11<-read.csv("m11.csv", header=TRUE, sep=";")
+g15.bz<-read.csv("g15.bz.max.csv", header=TRUE, sep=";")
+g15.gluk<-read.csv("g15.gluk.max.csv", header=TRUE, sep=";")
+g15.puls<-read.csv("g15.puls.csv", header=TRUE, sep=";")
+g15.hyper<-read.csv("g15.hyper.csv", header=TRUE, sep=";")
+g15.sao2<-read.csv("g15.sao2.csv", header=TRUE, sep=";")
+g15.temp<-read.csv("g15.temp.csv", header=TRUE, sep=";")
+##END DATA LOAD needed for automation of trigger search##
+#LOAD Visit numbers of patients who left in July and August 2018
+juliMKG<-read_excel("201807MKG.xlsx",sheet = 3)
+juliMK1<-read_excel("201807MK1.xlsx",sheet = 3)
+augustMKG<-read_excel("201808MKG.xlsx")
+augustMK1<-read_excel("201808MK1.xlsx")
+juniMKG<-read_excel("201806MKGMK1.xlsx",sheet = 1)
+juniMK1<-read_excel("201806MKGMK1.xlsx",sheet = 2)
+
+```
+
+# Eigene Funktionen
+
+Die folgende Funktion subsetTriggerResults hat die Eingabeparameter:
+
+*fallSetup = Vector mit einer Liste von Fallnummern
+*trigger = Name eines Dataframes mit den gefundenen Behandlungsfällen für einen Trigger
+
+und gibt ein Dataframe mit der Liste aller Fallnummern und den leeren Spalten Variable und Value zurück.
+
+```{r funtion1}
+subsetTriggerResults<-function(fallSetup, trigger)
+{
+    #var<-comment(trigger)
+    var<-toupper(deparse(substitute(trigger)))
+    trigger<-intersect(fallSetup,trigger$Fallnummer)
+    if ((((is.integer(trigger)) && length(trigger) != 0L))||(((is.numeric(trigger)) && length(trigger) != 0L))){
+      #print(paste("Trigger",trigger, sep = " "))
+      trigger<-unique(trigger)
+      trigger<-data.frame(Fallnummer=trigger, variable=var, value=1)
+      return(trigger)
+    }
+    else {
+      trigger<-data.frame(Fallnummer=0, variable=0,value=0)
+      return(trigger)
+    }
+}
+```
+
+# Vorbereitung der Daten zur automatischen Analyse von Triggern in Behandlungsfällen
+
+## Fallnummern aus dem Krankenhausinformationssystem werden in die P21 Daten hinzugefügt.
+
+```{r pressure}
+icdData<-merge(icd_intern,fallcode_intern) 
+opsData<-merge(ops_intern,fallcode_intern)
+fall<-merge(fall_intern,fallcode_intern)
+fab<-merge(fab_intern, fallcode_intern)
+```
+
+## Definition bestimmter Variablen, Einfügen notwendiger Spalten in Dataframes
+
+```{r variables_prepare}
+#create a color palette for harm categories (NCC MERP)
+harmCat.col<-cbbPalette <- c("#CC79A7", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2")
+names(harmCat.col)<-c("I","H","G","F","E","U")
+#create vector that contains available trigger categorie as per GTT
+triggerCategorie<-c("G","M","K","I","A")
+triggerNumber<-c(15,12,16,4,2)
+#CREATE TRIGGER AND HARM LIST THAT ACTS AS A HELPER TO FIND TRIGGER AND HARM COLUMNS
+allTrigger<-c()
+allHarm<-c()
+for(i in 1:length(triggerNumber)) {
+  for(j in 1:triggerNumber[i]) {
+    allTrigger<-c(allTrigger, paste(triggerCategorie[i], as.character(j), sep = "") )
+  }
+}
+allHarm<-c(paste(allTrigger,"S",sep = "_"))
+autoTrigger<-c("G1","G2","G3","G4","G8","G7","G14","G15","M1","M2","M3","M4","M5","M11","K2","K3","K4","K6","K13","K14","K15","K16","I1","I3")
+
+reviewerLevels <- c("Kirsch","Fischer","Wilke","Hanel","Bieber","Evimov")
+#PREPARE MANUELL DATA - ADD NEW TRIGGER AND HARM COLUMN TO SUM UP FINDINGS PER ROW
+manuell['TriggerCount']<-as.integer(0)
+manuell['HarmCount']<-as.integer(0)
+
+
+#PREPARE MANUEL DATA TO HAVE 20 MINUTES IS THE DEFAULT VALUE FOR REVIEW TIME (if this is empty)
+manuell$Reviewzeit_min[which(is.na(manuell$Reviewzeit_min))] <- 20
+manuell$Reviewzeit_min[manuell$Reviewzeit_min=="NA"] <- 20
+manuell$Reviewzeit_min<-as.integer(manuell$Reviewzeit_min)
+```
+
+## Ermittlung der relevantern Fallnummern für die automatisierte Triggersuche und den Vergleich der Ergebnisse zwischen manuellen Review und Automatisierung
+
+Die Ergebnisse der manuellen Reviews liegen unsortiert für einen Zeitraum von mehr als 3 Monaten vor. Die P21 Daten liegen lediglich für die Monate Juli und August 2018 vor. Um die gefunden Trigger des manuellen mit dem automatischen Prozesses zu vergleichen, müssen zunächst aus den eingelesenen Data Frames die Fallnummern extrahiert werden. Die relevanten Fallnummerlisten lauten wie folgt:
+* P21FallNR: Alle Fallnummern welche in den P21 Daten vorkommen
+* allFallNr: Fallnummern mit allen entlassenen Behandlungsfällen aus den Monaten Juli und August 2018 für die Pilotkliniken 1 und G
+* allFallNrP21: Die Schnittmenge aus beiden vorangegangenen Fallnummern Listen P21FallNR und allFallNr
+* manuellFallNr: Die Liste der Fallnummern der manuell gereviewten Fälle einer zufälligen Stichprobe aus den entlassenen Fällen der Pilotkliniken 1 und G der Monate Juli und August 2018
+* compareFallNrP21: Die Liste der Fallnummern für den Ergebnisvergleich des manuellen und automatisierten Prozesses der Triggersuche
+
+```{r subsetFallnummern-78}
+P21FallNr<-unique(icdData$Fallnummer)
+MKG_7<-c(juliMKG$Fallnummer)
+MKG_8<-c(augustMKG$Fallnummer)
+MK1_7<-c(juliMK1$Fallnummer)
+MK1_8<-c(augustMK1$Fallnummer)
+#allFallNR is a list of visit numbers with all visits from the month July and August for the two pilot departments
+allFallNr78<-unique(c(MKG_7,MKG_8,MK1_7,MK1_8))
+#this list of visit numbers is relevant for the automation approach to search in all visits for triggers
+allFallNrP21<-(unique(intersect(P21FallNr,allFallNr78)))
+#returns a list of visit number that are missing in P21 data
+missingFallNrP21<-setdiff(allFallNr78,allFallNrP21)
+manuellFallNr78<-intersect(allFallNr78,(unique(manuell$Fallnummer)))
+compareFallNrP21<-intersect(manuellFallNr78,allFallNrP21)
+
+```
+
+# Analyse der manuellen Methode
+
+## Vorbereitung der Ergebnisse der manuellen Reviews
+
+Zunächst wird die benötigte Zeit aller Reviewer für alle Fallsichtungen berechnet.
+
+```{r reviewTime}
+totalReviewTime=sum(manuell$Reviewzeit_min,na.rm = TRUE)
+print(paste0("Die aufgewendete Zeit für die Reviews aller Fälle  beträgt ",totalReviewTime, " Minuten."))
+meanReviewTime=round(mean(manuell$Reviewzeit_min,na.rm = TRUE), digits = 2)
+print(paste0("Die Zeit pro Review beträgt durchschnittlich ",meanReviewTime, " Minuten."))
+```
+
+Pro Fallsichtung wird die Gesamtzahl an gefunden Triggern sowie an gefundenen Schäden berechnet und in die Spalten TriggerCount und HarmCount eingetragen.
+
+```{r countTriggerAndHarm}
+#first count triggers and sum up in column namde "TriggerCount"
+for(i in 1:nrow(manuell)){
+  for (j in 1:(ncol(manuell))) {
+    isTriggerCol <- (all(colnames(manuell[j]) %in% allTrigger))
+    if ((isTriggerCol==TRUE) && !(is.na(manuell[i,j]))) {
+      if (manuell[i,j]==TRUE) {
+        value<-manuell[i,'TriggerCount']
+        manuell[i,'TriggerCount']<-as.integer(value+1)
+      }
+    }
+    if ((isTriggerCol==TRUE)&& (is.na(manuell[i,j]))) {  
+      manuell[i,j]<-FALSE
+      
+    }
+  }
+}
+#second count hamr and sum up in column namde "HarmCount"
+for(i in 1:nrow(manuell)){
+  for (j in 1:(ncol(manuell))) {
+    isHarmCol <- (all(colnames(manuell[j]) %in% allHarm))
+    if ((isHarmCol==TRUE) && !(is.na(manuell[i,j]))) {
+      value<-manuell[i,'HarmCount']
+      manuell[i,'HarmCount']<-as.integer(value+1)
+    }
+  }
+}
+
+```
+
+Anschließend werden die doppelten Zeilen der verschiedenen Reviewer für einen Fall gelöscht. Der Reviewer Kirsch entspricht dem Supervisor. Nur die Zeilen des Supervisors bleiben für jeden gesichteten Fall im Dataframe erhalten. Das genutzte Verfahren stellt bei fehlendem Supervisor Eintrag für eine Fallnummer sicher, dass ein Eintrag eines anderen Reviewers bleibt. Dieses Verfahren erfolgt unter der getroffenen Annahme, dass bei einer Nicht-Existenz eines Eintrages des Supervisors die beiden einzelnen Reviewer die gleichen Ergebnisse hinsichtlich Trigger und Schäden ermittelt haben. 
+
+```{r uniqueManuell}
+manuellUNIQUE<-manuell
+manuellUNIQUE$Reviewer <- factor(manuellUNIQUE$Reviewer, reviewerLevels) #ensure priority, Rev3 first
+manuellUNIQUE<-manuellUNIQUE[order(manuellUNIQUE$Reviewer),] #order based on reviewers
+manuellUNIQUE<-manuellUNIQUE[!duplicated(manuellUNIQUE[,c('IDEingabe')]),] #removes duplicate entries, based on IDEingabe
+```
+
+Hinsichtlich Datenqualiät und Semantik der Daten werden zwei neue Dataframe erstellt und gespeichert, welche jeweils nur die Fallnummern und die Trigger bzw. die identifzierten Schäden enthalten.
+Das Dataframe manuellTriggerOnly enthält dann nur die Spalten Fallnummer, Tage, IDEingabe und die Spalten mit allen Triggern, simultan dazu enthält das Dataframe manuellHarmOnly die gleichen Spalten, aber anstatt der Trigger Spalten die Spalten mit den Schäden.
+
+```{r reduce}
+manuellTriggerOnly<-manuellUNIQUE
+TriggerColList<-c()
+for (j in 1:(ncol(manuellTriggerOnly))) {
+  isTriggerCol <- (all(colnames(manuellUNIQUE[j]) %in% allTrigger))
+  isIDCol <- (all(colnames(manuellUNIQUE[j]) %in% "IDEingabe"))
+  isDayCol <- (all(colnames(manuellUNIQUE[j]) %in% "Tage"))
+  isVisitCol <- (all(colnames(manuellUNIQUE[j]) %in% "Fallnummer"))
+  if ((isTriggerCol==TRUE) || (isIDCol==TRUE) || (isDayCol==TRUE)|| (isVisitCol==TRUE)){
+    TriggerColList<-c(TriggerColList,colnames(manuellUNIQUE[j]))
+    manuellTriggerOnly<-manuellUNIQUE[TriggerColList]
+  }
+}
+
+manuellHarmOnly<-manuellUNIQUE
+HarmColList<-c()
+for (j in 1:(ncol(manuellHarmOnly))) {
+  isHarmCol <- (all(colnames(manuellUNIQUE[j]) %in% allHarm))
+  isIDCol <- (all(colnames(manuellUNIQUE[j]) %in% "IDEingabe"))
+  isDayCol <- (all(colnames(manuellUNIQUE[j]) %in% "Tage"))
+  isVisitCol <- (all(colnames(manuellUNIQUE[j]) %in% "Fallnummer"))
+  if ((isHarmCol==TRUE) || (isIDCol==TRUE) || (isDayCol==TRUE)|| (isVisitCol==TRUE)) {
+    HarmColList<-c(HarmColList,colnames(manuellUNIQUE[j]))
+    manuellHarmOnly<-manuellUNIQUE[HarmColList]
+  }
+}
+```
+
+Für die Durchführung späterer Analysen der Daten, werdn die beiden Dataframes mit Trigger und Schäden umgeformt. Statt der 49 Spalten für Trigger und Schäden gibt es in dem Dataframe stattdessen pro Fäll eine Spalte mit der Variable und dem entsprechenden Wert als Spalte Value.
+Bei der Umformung ist ein wichtiger Unterschied in den Spalten Variable und Value zwischen Trigger und Schaden.
+Die Werte der Trigger sind logische Werte vom Typ boolean (TRUE(FALSE). 
+Die Werte der Schäden sind character Werte mit einer definierten Wertemenge: "I","H","G","F","E","U" zur Bestimmung der Schadenskategorie. 
+
+```{r melt, echo=FALSE}
+manuellTriggerOnly$IDEingabe <- as.vector(as.list(manuellTriggerOnly$IDEingabe))
+manuellTriggerOnly$Tage <- as.vector(as.list(manuellTriggerOnly$Tage))
+manuellTriggerOnly$Fallnummer <- as.vector(as.list(manuellTriggerOnly$Fallnummer))
+setDT(manuellTriggerOnly)
+manuellMeltTrigger<- melt(manuellTriggerOnly,id=c("IDEingabe","Tage","Fallnummer"))
+#important to change class for value column from logical to numeric, otherwise plot does not work
+manuellMeltTrigger$Fallnummer<-as.numeric(manuellMeltTrigger$Fallnummer)
+manuellMeltTriggerTRUE<-manuellMeltTrigger[(which(manuellMeltTrigger$value!=FALSE)),]
+colorcountTrigger<-length(unique(manuellMeltTriggerTRUE$variable))
+#
+manuellHarmOnly$IDEingabe <- as.vector(as.list(manuellHarmOnly$IDEingabe))
+manuellHarmOnly$Tage <- as.vector(as.list(manuellHarmOnly$Tage))
+setDT(manuellHarmOnly)
+manuellMeltHarm<- melt(manuellHarmOnly,id=c("IDEingabe","Tage","Fallnummer"))
+#remove all rows from the df where entries in column 5 are NA
+manuellMeltHarmTRUE<-manuellMeltHarm[!is.na(manuellMeltHarm$value),]
+manuellMeltHarmTRUE$value<-factor(manuellMeltHarmTRUE$value, levels = c("I","H","G","F","E","U")) 
+manuellMeltHarmTRUE<-manuellMeltHarmTRUE[!is.na(manuellMeltHarmTRUE$value),]
+manuellMeltHarmTRUE<-cbind(Helper = 1, manuellMeltHarmTRUE)
+#manuellMeltHarmTRUE$value <- factor(manuellMeltHarmTRUE$value, levels = c("I","H","G","F","E","U")) 
+
+```
+
+Abschließend wird nur ein Dataframe erstellt, welches aus den manuellen Reviews nur die Fallnummern enthält, bei denen die identifizierten Trigger letztlich auch in Schäden resultierten.
+
+```{r onlyVisitsWithTriggerAndHarm}
+manuellMeltTriggerHarm<-manuellMeltTriggerTRUE[(which(manuellMeltTriggerTRUE$Fallnummer %in% (unique(manuellMeltHarmTRUE$Fallnummer)))),]
+```
+
+## Analyse der Ergebnisse der manuellen Reviews
+
+Zunächst wird ermittelt, welche Schadenskategorie am häufigsten vorkommt und welcher Trigger am häufigsten identifziert wurde. 
+
+```{r tableCounts}
+#provides an overview of total numbers for each quantity of harms, no duplicates
+table(manuellUNIQUE$HarmCount)
+#provides an overview of total numbers for each quantity of harms, no duplicates
+table(manuellUNIQUE$TriggerCount)
+```
+
+
+
+Im Folgenden werden statistische Werte für Trigger und Schäden kalkuliert
+```{r statistische Werte manuelle Auwertung}
+#provides stat summary values of identified harm
+summary(manuellUNIQUE$HarmCount)
+#provides stat summary values of identified harm
+summary(manuellUNIQUE$TriggerCount)
+
+#total number of identified trigger
+length(manuellMeltTriggerTRUE$value)
+
+#total number of identified harm
+length(manuellMeltHarmTRUE$value)
+
+#trigger categorie findings, counted
+table(manuellMeltTriggerTRUE$variable)
+
+#harm findings by trigger categorie, counted
+table(manuellMeltHarmTRUE$variable)
+
+plot(table(manuellUNIQUE$TriggerCount),
+     main="Histogramm - Anzahl der Trigger", 
+     xlab="Anzahl Trigger", 
+     ylab="Häufigkeit",
+     xlim=c(0,14),
+     ylim=c(0,40),
+     yaxt = "n"
+     )
+axis(2, seq(0,40,1))
+grid(NA, 40, lwd = 0.5)
+
+plot(table(manuellUNIQUE$HarmCount),
+     main="Histogramm - Anzahl der Schäden", 
+     xlab="Anzahl Trigger", 
+     ylab="Häufigkeit",
+     xlim=c(0,14),
+     ylim=c(0,75),
+     yaxt = "n"
+     )
+axis(2, seq(0,75,1))
+grid(NA, 40, lwd = 0.5)
+
+#Häufigkeitsverteilung der Triggertypen, Anzeige der am häufigsten gefundenen Triggertypen
+mengeTriggerTyp<-manuellMeltTriggerTRUE
+mengeTriggerTyp$value<-1
+mengeTriggerTyp$value<-as.integer(mengeTriggerTyp$value)
+p.mengeTriggerTyp<-ggplot(mengeTriggerTyp, aes(factor(variable), value)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +coord_flip() + xlab("Triggertypen") + ylab("Menge") 
+print(p.mengeTriggerTyp)
+#Häufigkeitsverteilung der Triggertypen , Anzeige der am häufigsten gefundenen Triggertypen bei Schaden
+mengeTriggerHarmTyp<-manuellMeltHarmTRUE
+mengeTriggerHarmTyp$value<-1
+mengeTriggerHarmTyp$value<-as.integer(mengeTriggerHarmTyp$value)
+p.mengeTriggerHarmTyp<-ggplot(mengeTriggerHarmTyp, aes(factor(variable), value)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +coord_flip() + xlab("Triggertypen mit Schaden") + ylab("Menge") 
+print(p.mengeTriggerHarmTyp)
+
+#build a dateframe that contains table output from triggertype quantity distribution
+df.mengeTriggerTyp<-as.data.frame(as.matrix(table(mengeTriggerTyp$variable)))
+df.mengeTriggerHarmTyp<-as.data.frame(as.matrix(table(mengeTriggerHarmTyp$variable)))
+df.mengeTriggerTyp$Schaden<-df.mengeTriggerHarmTyp$V1
+df.mengeTriggerTyp$TriggerTyp<-allTrigger
+#remove all rows from the df with 0 in column TriggerMenge
+colnames(df.mengeTriggerTyp)[colnames(df.mengeTriggerTyp)=="V1"] <- "TriggerMenge"
+df.mengeTriggerTyp<-filter(df.mengeTriggerTyp, TriggerMenge > 0)
+df.mengeTriggerTyp$PPV <- with(df.mengeTriggerTyp, Schaden/TriggerMenge)
+df.mengeTriggerTyp$PPV<-round(df.mengeTriggerTyp$PPV, digits = 2)
+df.mengeTriggerTyp<-df.mengeTriggerTyp[order(-df.mengeTriggerTyp$TriggerMenge),]
+df.mengeTriggerTyp$percent<-with(df.mengeTriggerTyp, df.mengeTriggerTyp$TriggerMenge/(sum(df.mengeTriggerTyp$TriggerMenge))*100)
+df.mengeTriggerTyp$percent<-round(df.mengeTriggerTyp$percent, digits = 2)
+dd<-unique(df.mengeTriggerTyp$TriggerTyp)
+dd.col <- rainbow(length(dd))
+names(dd.col)  <- dd
+p.mengeTriggerTyp<-ggplot(df.mengeTriggerTyp, aes(x=reorder(TriggerTyp, -TriggerMenge), y=TriggerMenge)) + geom_bar(stat = "identity") + coord_flip() + xlab("Trigger Typ") + ylab(" Anzahl") + geom_text(aes(label = df.mengeTriggerTyp$TriggerMenge), size = 3.5, position=position_dodge(width=0.9), hjust= -0.5)
+                          
+p.PPVTriggerTyp<-ggplot(df.mengeTriggerTyp, aes(x=reorder(TriggerTyp, -TriggerMenge), y=PPV)) + geom_bar(stat = "identity") + coord_flip() + xlab("Trigger Typ")  + geom_text(aes(label = df.mengeTriggerTyp$PPV), size = 3.5, position=position_dodge(width=0.9), hjust= -0.5)
+print(p.mengeTriggerTyp)
+print(p.PPVTriggerTyp)
+```
+
+
+Danach werden die Häufigkeiten der Schäden inklusive der Verteilung der Schadensklassifikation pro Schaden grafisch dargestellt. 
+
+```{r plotHarm, fig.height=10, fig.width=10}
+#plot all harm table information 
+plotHARM<-ggplot(manuellMeltHarmTRUE, aes(factor(variable), Helper, fill = value))+ geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values=harmCat.col) + xlab("Trigger Typ") + ylab("Anzahl der Schäden") + guides(fill=guide_legend(title="NCC MERP Schadensklassen")) + coord_flip()
+print(plotHARM)
+
+pie.HarmClass<- ggplot(manuellMeltHarmTRUE, aes(x=factor(1), fill=value)) +geom_bar(width = 1) + coord_polar("y") +theme(axis.text.x=element_blank()) +scale_fill_manual("Schadensklassen gemäß NCC MERP", values=harmCat.col) + guides(fill=guide_legend(title="Häufigkeitsverteilung der Schadensklassen"))
+print(pie.HarmClass)
+
+table(manuellMeltHarmTRUE$value)
+
+```
+
+Anschließend werden die Häufigkeiten der Schadenskategorien (ohne Betrachtung der Trigger) pro gesichteten Behandlungsfall betrachtet.
+```{r plotHarmFall}
+#all visits with harms, where harm!=U
+visitsWithU<-manuellMeltHarmTRUE[which(manuellMeltHarmTRUE$value=="U"),]
+dfU<-as.data.frame(table(factor(unlist(visitsWithU$IDEingabe))))
+colnames(dfU)<-c("IDEingabe","U")
+#all visits with harms, where harm==E
+visitsWithE<-(manuellMeltHarmTRUE[which(manuellMeltHarmTRUE$value=="E"),])
+#number of E Harms per visit
+dfE<-as.data.frame(table(factor(unlist(visitsWithE$IDEingabe))))
+colnames(dfE)<-c("IDEingabe","E")
+#all visits with harms, where harm==G
+visitsWithG<-(manuellMeltHarmTRUE[which(manuellMeltHarmTRUE$value=="G"),])
+dfG<-as.data.frame(table(factor(unlist(visitsWithG$IDEingabe))))
+colnames(dfG)<-c("IDEingabe","G")
+#all visits with harms, where harm==f
+visitsWithF<-(manuellMeltHarmTRUE[which(manuellMeltHarmTRUE$value=="F"),])
+dfF<-as.data.frame(table(factor(unlist(visitsWithF$IDEingabe))))
+colnames(dfF)<-c("IDEingabe","F")
+visitsWithH<-(manuellMeltHarmTRUE[which(manuellMeltHarmTRUE$value=="H"),])
+dfH<-as.data.frame(table(factor(unlist(visitsWithH$IDEingabe))))
+colnames(dfH)<-c("IDEingabe","H")
+##################################
+#Now let's merge all datasets together to have an overview of number per harms per categorie for each visist
+##################################
+mergeUF<-merge(dfU,dfF,all = TRUE)
+mergeUFE<-merge(mergeUF,dfE,all=TRUE)
+mergeUFEG<-merge(mergeUFE,dfG,all=TRUE)
+mergeUFEGH<-merge(mergeUFEG,dfH,all=TRUE)
+meltUFEGH<-melt(mergeUFEGH,id=c("IDEingabe"))
+
+#show number of affected visits by harm
+length(unique(unlist(manuellMeltHarmTRUE$IDEingabe)))
+#show number of harms per visit
+manuellMeltHarmTRUE$IDEingabe <-unlist(manuellMeltHarmTRUE$IDEingabe)
+count(manuellMeltHarmTRUE, vars = "IDEingabe")
+```
+Als Gesamtüberblick über die manuellen Reviews werden auch noch die Anzhahl der Trigger pro Behandlungsfall, die Anzahl und Kategorie der Schäden pro Behandlungsfall und die Behandlungsfälle, bei denen ein identifzierter Trigger auch in einem Schaden resultiert hat grafisch dargestellt.
+
+
+
+```{r plot Visit with Harm, fig.height=10, fig.width=10}
+
+plotHarmPerVisit<-ggplot(meltUFEGH, aes(factor(IDEingabe), value, fill = variable)) +geom_bar(stat="identity",position = position_stack(reverse = TRUE)) + scale_fill_brewer(palette = "Set1") + xlab("Anonymisierte Fallnummern") + ylab("Anzahl an Schaeden pro Fall") + ggtitle("Schaeden pro Fall, nach Schadenskategorie sortiert") + guides(fill=guide_legend(title="Schaden gemäß NCC MERP")) + coord_flip() 
+print(plotHarmPerVisit)
+```
+
+```{r plotTrigger per Visit, fig.height=10, fig.width=10}
+plotTriggerPerVisit<-ggplot(manuellMeltTriggerTRUE, aes(factor(unlist(IDEingabe)), value, fill = variable)) +geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Set1"))(colorcountTrigger),guide = guide_legend(nrow=2)) + xlab("Anonymisierte Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Trigger pro Falls") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() 
+
+plotTriggerWithHarms<-ggplot(manuellMeltTriggerHarm, aes(factor(unlist(IDEingabe)), value, fill = variable)) +geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Set1"))(colorcountTrigger),guide = guide_legend(nrow=2)) + xlab("Anonymisierte Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Trigger pro Fall für Fälle mit Schaden") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() 
+print(plotTriggerWithHarms)
+```
+
+```{r plot number per trigger type, fig.height=10, fig.width=10}
+plottriggerType<-ggplot(manuellMeltTriggerTRUE, aes(factor(variable), factor(value)))+ geom_bar(stat="identity",position = position_stack(reverse = TRUE)) + xlab("Menge je Triggertyp") + ylab("Trigger") + ggtitle("Mengenverteilung der Trigger") + coord_flip()
+print(plottriggerType)
+```
+
+# Automatische Ermittlung der Trigger
+
+## Erstellung der einzelnen Dataframes pro Trigger
+
+Nach den folgenden Triggern kann derzeit automatisiert in Behandlungsfällen gesucht werden:
+G1, G2, G3, G4, G7, G8, G14, G15, M1, M2, M3, M4, M5, M11, K2, K3, K4, K6, K13, K14, K15, K16, I1, I3
+
+### Trigger G1 - Bluttransfusion
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt nach dem OPS Kode 8-80*
+
+```{r createAutoTrigger G1}
+#Trigger G1 - Bluttransfusion get data from 
+g1<-subset(opsData, grepl("^880%*", opsData$OPS.Kode))
+g1ALL78<-subsetTriggerResults(allFallNr78,g1)
+g1MAN78<-subsetTriggerResults(manuellFallNr78,g1)
+g1Compare<-subsetTriggerResults(compareFallNrP21,g1)
+```
+
+### Trigger G2 - Reanimation
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt nach dem OPS Kode 8-771 für die Transfusion von Blutprodukten.
+
+```{r createAutoTrigger G2}
+g2<-subset(opsData, grepl("^8771%*", opsData$OPS.Kode))
+g2ALL78<-subsetTriggerResults(allFallNr78,g2)
+g2MAN78<-subsetTriggerResults(manuellFallNr78,g2)
+g2Compare<-subsetTriggerResults(compareFallNrP21,g2)
+```
+
+### Trigger G3 - akute Dialyse wegen akuten Nierenversagens
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt nach der Diagnose N17 für akutes Nierenversagen und nach den OPS Kodes 8-853, 8-854 oder 8-855 für diverse Dialysetypen.
+
+```{r createAutoTrigger G3}
+g3icd<-subset(icdData, grepl("^N17%*", icdData$ICD.Kode))
+g3icdNR<-g3icd$Fallnummer
+g3ops<-(subset(opsData, grepl("^8853%*|^8854%*|^8855%*", opsData$OPS.Kode)))
+g3<-g3icd[which(g3icdNR %in% g3ops$Fallnummer),]
+g3ALL78<-subsetTriggerResults(allFallNr78,g3)
+g3MAN78<-subsetTriggerResults(manuellFallNr78,g3)
+g3Compare<-subsetTriggerResults(compareFallNrP21,g3)
+```
+
+### Trigger G4 - Positive Blutkulturen
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt nach den Diagnose A49, A40, A41 oder dem möglichen Sekundär Kode R65 für SIRS. 
+
+```{r createAutoTrigger G4}
+g4.1<-subset(icdData, grepl("^A49%*|^A40%*|^A41%*", icdData$ICD.Kode))
+g4.2<-subset(icdData, grepl("^R65%*",icdData$Sekundär.Kode))
+g4 <- rbind(g4.1, g4.2)
+g4ALL78<-subsetTriggerResults(allFallNr78,g4)
+g4MAN78<-subsetTriggerResults(manuellFallNr78,g4)
+g4Compare<-subsetTriggerResults(compareFallNrP21,g4)
+```
+
+### Trigger G7 - Sturz
+
+Bei der automatischen Suche nach diesem Trigger werden die über das interne Qualitätsmanagement zur Verfügung gestellten Sturzstatistiken genutzt.
+
+```{r createAutoTrigger G7}
+g7ALL78<-subsetTriggerResults(allFallNr78,g7)
+g7MAN78<-subsetTriggerResults(manuellFallNr78,g7)
+g7Compare<-subsetTriggerResults(compareFallNrP21,g7)
+```
+
+### Trigger G8 - Dekubitus
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt nach der Diagnose L89 für Dekubitus.
+
+```{r createAutoTrigger G8}
+g8<-subset(icdData, grepl("^L89%*", icdData$ICD.Kode))
+g8ALL78<-subsetTriggerResults(allFallNr78,g8)
+g8MAN78<-subsetTriggerResults(manuellFallNr78,g8)
+g8Compare<-subsetTriggerResults(compareFallNrP21,g8)
+```
+
+### Trigger G14 - Komplikationen generell
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt über die Diagnosen T80, T82, T83, T84, T86, T87 oder T88.
+
+```{r createAutoTrigger G14}
+g14<-subset(icdData, grepl("^T80%*|^T82%*|^T83%*|^T84%*|^T85%*|^T86%*|^T87%*|^T88%*", icdData$ICD.Kode))
+g14ALL78<-subsetTriggerResults(allFallNr78,g14)
+g14MAN78<-subsetTriggerResults(manuellFallNr78,g14)
+g14Compare<-subsetTriggerResults(compareFallNrP21,g14)
+```
+
+### Trigger G15 - Sonstiges
+
+Die Suche nach diesem Trigger ist vielfältig und laut GTT zunächst nicht detaillierter beschrieben. Daher erfolgt die Suche anhand der Kriterien folgenden Kriterien:
+
+* Körpertemperatur > 38.5 Grad Celsius
+* Puls < 40 pro Minte
+* Systolischer Wert des Blutdrucks > 200
+* Sauerstoffsätigung < 90
+* Blutzuckerwert > 20 mmol/l
+
+Für jedes Kriterium der Liste wurde ein eigener Report in ORBIS erstellt und die Ergebnisse wurden als einzelne Dateien eingelesen.
+
+```{r createAutoTrigger G15}
+colnames(g15.bz)[colnames(g15.bz)=="FALLNR"] <- "Fallnummer"
+colnames(g15.gluk)[colnames(g15.gluk)=="FALLNR"] <- "Fallnummer"
+colnames(g15.puls)[colnames(g15.puls)=="FALLNR"] <- "Fallnummer"
+colnames(g15.hyper)[colnames(g15.hyper)=="FALLNR"] <- "Fallnummer"
+colnames(g15.sao2)[colnames(g15.sao2)=="FALLNR"] <- "Fallnummer"
+colnames(g15.temp)[colnames(g15.temp)=="FALLNR"] <- "Fallnummer"
+
+g15<-g15.bz
+g15.bz.ALL78<-subsetTriggerResults(allFallNr78,g15)
+g15.bz.MAN78<-subsetTriggerResults(manuellFallNr78,g15)
+g15.bz.Compare<-subsetTriggerResults(compareFallNrP21,g15)
+
+g15<-g15.gluk
+g15.gluk.ALL78<-subsetTriggerResults(allFallNr78,g15)
+g15.gluk.MAN78<-subsetTriggerResults(manuellFallNr78,g15)
+g15.gluk.Compare<-subsetTriggerResults(compareFallNrP21,g15)
+
+g15<-g15.puls
+g15.puls.ALL78<-subsetTriggerResults(allFallNr78,g15)
+g15.puls.MAN78<-subsetTriggerResults(manuellFallNr78,g15)
+g15.puls.Compare<-subsetTriggerResults(compareFallNrP21,g15)
+
+g15<-g15.hyper
+g15.hyper.ALL78<-subsetTriggerResults(allFallNr78,g15)
+g15.hyper.MAN78<-subsetTriggerResults(manuellFallNr78,g15)
+g15.hyper.Compare<-subsetTriggerResults(compareFallNrP21,g15)
+
+g15<-g15.sao2
+g15.sao2.ALL78<-subsetTriggerResults(allFallNr78,g15)
+g15.sao2.MAN78<-subsetTriggerResults(manuellFallNr78,g15)
+g15.sao2.Compare<-subsetTriggerResults(compareFallNrP21,g15)
+
+g15<-g15.temp
+g15.temp.ALL78<-subsetTriggerResults(allFallNr78,g15)
+g15.temp.MAN78<-subsetTriggerResults(manuellFallNr78,g15)
+g15.temp.Compare<-subsetTriggerResults(compareFallNrP21,g15)
+
+g15ALL78 <- rbind(g15.bz.ALL78, g15.gluk.ALL78, g15.puls.ALL78, g15.hyper.ALL78, g15.sao2.ALL78, g15.temp.ALL78)
+g15MAN78 <- rbind(g15.bz.MAN78, g15.gluk.MAN78, g15.puls.MAN78, g15.hyper.MAN78, g15.sao2.MAN78, g15.temp.MAN78)
+g15Compare <- rbind(g15.bz.Compare, g15.gluk.Compare, g15.puls.Compare, g15.hyper.Compare, g15.sao2.Compare, g15.temp.Compare)
+g15ALL78<-subset(g15ALL78, Fallnummer!=0)
+g15MAN78<-subset(g15MAN78, Fallnummer!=0)
+g15Compare<-subset(g15Compare, Fallnummer!=0)
+
+```
+
+### Trigger M1 - Clostridium difficile in der Stuhlprobe
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt über die Diagnose A04.7 oder den Sekundär-Kode U69.40.
+
+```{r createAutoTrigger G(14)}
+m1.1<-subset(icdData, grepl("^A04.7%*", icdData$ICD.Kode))
+m1.2<-subset(icdData, grepl("^U69.40!$", icdData$Sekundär.Kode))
+m1 <- rbind(m1.1, m1.2)
+m1ALL78<-subsetTriggerResults(allFallNr78,m1)
+m1MAN78<-subsetTriggerResults(manuellFallNr78,m1)
+m1Compare<-subsetTriggerResults(compareFallNrP21,m1)
+```
+
+### Trigger M2 - PTT>100
+
+Bei der automatischen Suche nach diesem Trigger werden Daten aus dem Krankenhausinformationssystem ORBIS genutzt. Die Liste mit den Behandlungsfällen bei denen der Wert PTT>100 ist, werden über einen entsprechenden Report ermittelt. 
+
+```{r createAutoTrigger M2}
+colnames(m2)[colnames(m2)=="FALLNR"] <- "Fallnummer"
+m2ALL78<-subsetTriggerResults(allFallNr78,m2)
+m2MAN78<-subsetTriggerResults(manuellFallNr78,m2)
+m2Compare<-subsetTriggerResults(compareFallNrP21,m2)
+m2ALL78<-subset(m2ALL78, Fallnummer!=0)
+m2MAN78<-subset(m2MAN78, Fallnummer!=0)
+m2Compare<-subset(m2Compare, Fallnummer!=0)
+```
+
+### Trigger M3 - INR>4
+
+Bei der automatischen Suche nach diesem Trigger werden Daten aus dem Krankenhausinformationssystem ORBIS genutzt. Die Liste mit den Behandlungsfällen bei denen der Wert INR>4 ist, werden über einen entsprechenden Report ermittelt. 
+
+```{r createAutoTrigger M3}
+colnames(m3)[colnames(m3)=="FALLNR"] <- "Fallnummer"
+m3ALL78<-subsetTriggerResults(allFallNr78,m3)
+m3MAN78<-subsetTriggerResults(manuellFallNr78,m3)
+m3Compare<-subsetTriggerResults(compareFallNrP21,m3)
+m3ALL78<-subset(m3ALL78, Fallnummer!=0)
+m3MAN78<-subset(m3MAN78, Fallnummer!=0)
+m3Compare<-subset(m3Compare, Fallnummer!=0)
+```
+
+### Trigger M4 - Glukose<3,0mmol/l
+
+Bei der automatischen Suche nach diesem Trigger werden Daten aus dem Krankenhausinformationssystem ORBIS genutzt. Die Liste mit den Behandlungsfällen bei denen der Glukose<3,0mmol/l ist, werden über zwei entsprechende Reports ermittelt. 
+
+```{r createAutoTrigger M4}
+colnames(m4.bz)[colnames(m4.bz)=="FALLNR"] <- "Fallnummer"
+colnames(m4.gluk)[colnames(m4.gluk)=="FALLNR"] <- "Fallnummer"
+m4<-m4.bz
+m4.bz.ALL78<-subsetTriggerResults(allFallNr78,m4)
+m4.bz.MAN78<-subsetTriggerResults(manuellFallNr78,m4.bz)
+m4.bz.Compare<-subsetTriggerResults(compareFallNrP21,m4.bz)
+m4<-m4.gluk
+m4.gluk.ALL78<-subsetTriggerResults(allFallNr78,m4)
+m4.gluk.MAN78<-subsetTriggerResults(manuellFallNr78,m4.gluk)
+m4.gluk.Compare<-subsetTriggerResults(compareFallNrP21,m4.gluk)
+m4ALL78 <- rbind(m4.bz.ALL78, m4.gluk.ALL78)
+m4MAN78 <- rbind(m4.bz.MAN78, m4.gluk.MAN78)
+m4Compare <- rbind(m4.bz.Compare, m4.gluk.Compare)
+m4ALL78<-subset(m4ALL78, Fallnummer!=0)
+m4MAN78<-subset(m4MAN78, Fallnummer!=0)
+m4Compare<-subset(m4Compare, Fallnummer!=0)
+
+```
+
+### Trigger M5 - Kreatinin > 2fach Normwert
+
+Bei der automatischen Suche nach diesem Trigger werden Daten aus dem Krankenhausinformationssystem ORBIS genutzt. Zunächst liegt nur eine Liste mit allen Kreatininwerten für alle Behandlungsfälle vor.
+In R muss also anhand eines Wertes in einer Spalte, der zulässige, patientenindivduelle Wert ausgelesen werden um dann denn Laborwert für Kreatinin hinsichtlich des Kriteriums Kreatinin > 2facher Normwert zu beurteilen und nur die Fälle mit zu hohem Kreatininwert zu ermitteln. 
+
+```{r createAutoTrigger M5}
+colnames(m5.krea)[colnames(m5.krea)=="FALLNR"] <- "Fallnummer"
+m5<-(separate(m5.krea,LB_NORMALWERTE,sep = " - ", remove=TRUE, into = c("norm1", "norm2")))
+m5$norm2<-as.integer(m5$norm2)
+m5$norm2<-2*(m5$norm2)
+m5<-subset(m5, LB_WERT>norm2)
+m5ALL78<-subsetTriggerResults(allFallNr78,m5)
+m5MAN78<-subsetTriggerResults(manuellFallNr78,m5)
+m5Compare<-subsetTriggerResults(compareFallNrP21,m5)
+m5ALL78<-subset(m5ALL78, Fallnummer!=0)
+m5MAN78<-subset(m5MAN78, Fallnummer!=0)
+m5Compare<-subset(m5Compare, Fallnummer!=0)
+```
+
+### Trigger M11 - Hypotonie
+
+Bei der automatischen Suche nach diesem Trigger werden Daten aus dem Krankenhausinformationssystem ORBIS genutzt. Die Liste mit den Behandlungsfällen bei denen ein systolischer Wert des Blutdrucks < 90 vorliegt, werden über einen entsprechenden Report ermittelt. Eine Übersedierung kann so allerdings nicht ausgewertet werden. Die Automatisierung für diesen Trigger ist somit limitiert.
+
+```{r createAutoTrigger M11}
+colnames(m11)[colnames(m11)=="FALLNR"] <- "Fallnummer"
+m11ALL78<-subsetTriggerResults(allFallNr78,m11)
+m11MAN78<-subsetTriggerResults(manuellFallNr78,m11)
+m11Compare<-subsetTriggerResults(compareFallNrP21,m11)
+m11ALL78<-subset(m11ALL78, Fallnummer!=0)
+m11MAN78<-subset(m11MAN78, Fallnummer!=0)
+m11Compare<-subset(m11Compare, Fallnummer!=0)
+```
+
+### Trigger K2 - Änderung des Eingriffs
+
+Diese Daten werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt. Die Änderung eines Eingriffes erfolgt über die Dokumentation bestimmer Verlaufsbeobachtungen. 
+
+```{r createAutoTrigger K2}
+k2ALL78<-subsetTriggerResults(allFallNr78,k2)
+k2MAN78<-subsetTriggerResults(manuellFallNr78,k2)
+k2Compare<-subsetTriggerResults(compareFallNrP21,k2)
+
+k2ALL78<-subset(k2ALL78, Fallnummer!=0)
+k2MAN78<-subset(k2MAN78, Fallnummer!=0)
+k2Compare<-subset(k2Compare, Fallnummer!=0)
+```
+
+### Trigger K3 - Verlegung auf eine ITS Station nach einer Operation
+
+Diese Daten werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt. Bei jeder Operation wird dokumentiert auf welche Station ein Patient verlegt wurde. 
+
+```{r createAutoTrigger K3}
+k3ALL78<-subsetTriggerResults(allFallNr78,k3)
+k3MAN78<-subsetTriggerResults(manuellFallNr78,k3)
+k3Compare<-subsetTriggerResults(compareFallNrP21,k3)
+
+k3ALL78<-subset(k3ALL78, Fallnummer!=0)
+k3MAN78<-subset(k3MAN78, Fallnummer!=0)
+k3Compare<-subset(k3Compare, Fallnummer!=0)
+```
+
+### Trigger K4 - Intubation
+
+Diese Daten werden aus zwei unterschiedlichen Datenquellen ermittelt. Zum einen wird in den P21 Daten nach einer Prozedure mit dem OPS Kode 8-701 gesucht. Zum anderen werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt.
+
+```{r createAutoTrigger K4}
+k4.ANDOK.ALL78<-subsetTriggerResults(allFallNr78,k4)
+k4.ANDOK.MAN78<-subsetTriggerResults(manuellFallNr78,k4)
+k4.ANDOK.Compare<-subsetTriggerResults(compareFallNrP21,k4)
+
+k4<-subset(opsData, grepl("^8701$", opsData$OPS.Kode))
+k4.P21.ALL78<-subsetTriggerResults(allFallNr78,k4)
+k4.P21.MAN78<-subsetTriggerResults(manuellFallNr78,k4)
+k4.P21.Compare<-subsetTriggerResults(compareFallNrP21,k4)
+
+k4ALL78 <- rbind(k4.ANDOK.ALL78, k4.P21.ALL78)
+k4MAN78 <- rbind(k4.ANDOK.MAN78, k4.P21.MAN78)
+k4Compare <- rbind(k4.ANDOK.Compare, k4.P21.Compare)
+k4ALL78<-subset(k4ALL78, Fallnummer!=0)
+k4MAN78<-subset(k4MAN78, Fallnummer!=0)
+k4Compare<-subset(k4Compare, Fallnummer!=0)
+```
+
+### Trigger K6 - Tod eines Patienten
+
+Diese Daten werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt. Bei jeder Operation wird dokumentiert wenn der Patient verstorben ist. 
+
+```{r createAutoTrigger K6}
+k6ALL78<-subsetTriggerResults(allFallNr78,k6)
+k6MAN78<-subsetTriggerResults(manuellFallNr78,k6)
+k6Compare<-subsetTriggerResults(compareFallNrP21,k6)
+
+k6ALL78<-subset(k6ALL78, Fallnummer!=0)
+k6MAN78<-subset(k6MAN78, Fallnummer!=0)
+k6Compare<-subset(k6Compare, Fallnummer!=0)
+```
+
+### Trigger K13 - ZVK oder Arterienkatheter
+
+Diese Daten werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt. 
+
+```{r createAutoTrigger K13}
+k13ALL78<-subsetTriggerResults(allFallNr78,k13)
+k13MAN78<-subsetTriggerResults(manuellFallNr78,k13)
+k13Compare<-subsetTriggerResults(compareFallNrP21,k13)
+
+k13ALL78<-subset(k13ALL78, Fallnummer!=0)
+k13MAN78<-subset(k13MAN78, Fallnummer!=0)
+k13Compare<-subset(k13Compare, Fallnummer!=0)
+```
+
+### Trigger K14 - Operationszeit > 6 Stunden
+
+Diese Daten werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt. Hierbei wird die Operationszeit anhand der Zeit des OP Beginns und Endes berechnet. 
+
+```{r createAutoTrigger K14}
+k14ALL78<-subsetTriggerResults(allFallNr78,k14)
+k14MAN78<-subsetTriggerResults(manuellFallNr78,k14)
+k14Compare<-subsetTriggerResults(compareFallNrP21,k14)
+
+k14ALL78<-subset(k14ALL78, Fallnummer!=0)
+k14MAN78<-subset(k14MAN78, Fallnummer!=0)
+k14Compare<-subset(k14Compare, Fallnummer!=0)
+```
+
+### Trigger K15 - Entfernung, Schaden, Reparatur von Organen
+
+Diese Daten werden die Daten aus den Anästhesieprotokollen über entsprechende SQL Abfragen ermittelt. Schädigungen im Rahmen der Anästhesie werden als Verlaufsbeobachtungen dokumentiert. Diese automatisierte Triggersuche ist allerdings stark limitiert, a Schäden durch den Chirurgen hier nicht zwingend identfiziert werden.
+
+```{r createAutoTrigger K115}
+k15ALL78<-subsetTriggerResults(allFallNr78,k15)
+k15MAN78<-subsetTriggerResults(manuellFallNr78,k15)
+k15Compare<-subsetTriggerResults(compareFallNrP21,k15)
+
+k15ALL78<-subset(k15ALL78, Fallnummer!=0)
+k15MAN78<-subset(k15MAN78, Fallnummer!=0)
+k15Compare<-subset(k15Compare, Fallnummer!=0)
+```
+
+### Trigger K16 - Komplikationen während oder direkt nach einer Operation
+
+Diese Daten werden aus zwei unterschiedlichen Datenquellen ermittelt. Zum einen wird in den den P21 Daten nach einer Diagnose mit dem Kode T81 gesucht, Zum anderen werden über entsprechende Datenbankabfragen der Anästhesieprotokolle alle Operationen und dazugehörigen Behandlungsfälle ermittelt, für die Anästhesieverlaufsbeobachtungen dokumentiert wurden.
+
+```{r createAutoTrigger K16}
+k16<-k16.1
+k16.ANDOK.ALL78<-subsetTriggerResults(allFallNr78,k16)
+k16.ANDOK.MAN78<-subsetTriggerResults(manuellFallNr78,k16)
+k16.ANDOK.Compare<-subsetTriggerResults(compareFallNrP21,k16)
+
+k16<-subset(icdData, grepl("^T81%*", icdData$ICD.Kode))
+k16.P21.ALL78<-subsetTriggerResults(allFallNr78,k16)
+k16.P21.MAN78<-subsetTriggerResults(manuellFallNr78,k16)
+k16.P21.Compare<-subsetTriggerResults(compareFallNrP21,k16)
+
+k16ALL78 <- rbind(k16.ANDOK.ALL78, k16.P21.ALL78)
+k16MAN78 <- rbind(k16.ANDOK.MAN78, k16.P21.MAN78)
+k16Compare <- rbind(k16.ANDOK.Compare, k16.P21.Compare)
+k16ALL78<-subset(k16ALL78, Fallnummer!=0)
+k16MAN78<-subset(k16MAN78, Fallnummer!=0)
+k16Compare<-subset(k16Compare, Fallnummer!=0)
+```
+
+### Trigger I1 - Pneumonie
+
+Bei der automatischen Suche nach diesem Trigger werden ausschließlich die P21 Daten genutzt. Die Suche erfolgt nach dem Sekundär Kode U69.0. 
+
+```{r createAutoTrigger I1}
+i1<-subset(icdData, grepl("^U69.0%*", icdData$Sekundär.Kode))
+i1ALL78<-subsetTriggerResults(allFallNr78,i1)
+i1MAN78<-subsetTriggerResults(manuellFallNr78,i1)
+i1Compare<-subsetTriggerResults(compareFallNrP21,i1)
+```
+
+### Trigger I3 - Eingriff/Behandlung auf ITS
+
+Die Behandlung auf einer Intensivstation ist abrechnungsrelevant und wird daher als OPS Kode in den P21 Daten dokumentiert. Daher erfolgt die Suche nach den OPS Kodes 8-980 und 8-98f.
+Außerdem sind in den P21 Daten in der Datei FAB auch die in einen Behandlungsfall involvierten Fachabteilungen zu finden. Daher wird hier nach FAB = HA36* gesucht. 
+
+```{r createAutoTrigger I3}
+i3<-subset(fab, grepl("^HA36%*", fab$FAB))
+i3.FAB.ALL78<-subsetTriggerResults(allFallNr78,i3)
+i3.FAB.MAN78<-subsetTriggerResults(manuellFallNr78,i3)
+i3.FAB.Compare<-subsetTriggerResults(compareFallNrP21,i3)
+
+i3<-subset(opsData, grepl("^8980%*|^898f%*", opsData$OPS.Kode))
+i3.OPS.ALL78<-subsetTriggerResults(allFallNr78,i3)
+i3.OPS.MAN78<-subsetTriggerResults(manuellFallNr78,i3)
+i3.OPS.Compare<-subsetTriggerResults(compareFallNrP21,i3)
+
+i3ALL78 <- rbind(i3.FAB.ALL78, i3.OPS.ALL78)
+i3MAN78 <- rbind(i3.FAB.MAN78, i3.OPS.MAN78)
+i3Compare <- rbind(i3.FAB.Compare, i3.OPS.Compare)
+i3ALL78<-subset(i3ALL78, Fallnummer!=0)
+i3MAN78<-subset(i3MAN78, Fallnummer!=0)
+i3Compare<-subset(i3Compare, Fallnummer!=0)
+```
+
+## Zusammenfassen der Einzeldateien in ein Dataframe für alle automatisch gefundenen Trigger
+
+Alle einzelnen Dataframes mit den Listen der identifzierten Fallnummern und dazugehörigen Triggern werdn nun in ein Dataframe gespeichert. Anschließend werden identische Zeilenn gelöscht. Diese identischen Zeilen kommen beispielsweise zustande, weil bei der automatisierten Suche teilweise nach mehr als einem Kriterium gesucht wird. Daher können Fälle für einen Trigger doppelt gelistet werden. 
+
+```{r createAutoTrigger complete}
+autoALL78<-rbind(g1ALL78,g2ALL78,g3ALL78,g4ALL78,g7ALL78,g8ALL78,g14ALL78,g15ALL78,m1ALL78,m2ALL78,m3ALL78,m4ALL78,m5ALL78,m11ALL78,k2ALL78,k3ALL78,k4ALL78,k6ALL78,k13ALL78,k14ALL78,k15ALL78,k16ALL78,i1ALL78,i3ALL78)
+
+autoALL78<-distinct(autoALL78)
+autoALL78<-subset(autoALL78, Fallnummer!=0)
+
+autoMAN78<-rbind(g1MAN78,g2MAN78,g3MAN78,g4MAN78,g7MAN78,g8MAN78,g14MAN78,g15MAN78,m1MAN78,m2MAN78,m3MAN78,m4MAN78,m5MAN78,m1MAN78,k2MAN78,k3MAN78,k4MAN78,k6MAN78,k13MAN78,k14MAN78,k15MAN78,k16MAN78,i1MAN78,i3MAN78)
+
+autoMAN78<-distinct(autoMAN78)
+autoMAN78<-subset(autoMAN78, Fallnummer!=0)
+
+autoCompare<-rbind(g1Compare,g2Compare,g3Compare,g4Compare,g7Compare,g8Compare,g14Compare,g15Compare,m1Compare,m2Compare,m3Compare,m4Compare,m5Compare,m11Compare,k2Compare,k3Compare,k4Compare,k6Compare,k13Compare,k14Compare,k15Compare,k16Compare,i1Compare,i3Compare)
+
+autoCompare<-distinct(autoCompare)
+autoCompare<-subset(autoCompare, Fallnummer!=0)
+```
+
+## Grafische Darstellung der Ergebnisse automatischen Triggersuche
+
+Zunächste wird zur farblichen Darstellung anhand der Anzahl der Triggerkategorien eine passende Farbpalette erstellt. Damit wird sichergestellt, dass in unterschiedlichen Plots die Farben für die entsprechende Triggerkategorie jeweils übereinstimmen.
+
+```{r Plot - setup Farbpalette und Vorbereitung Plots anonymisierte Fallnummern}
+#ensure  coloring for the plot
+dd<-unique(autoALL78$variable)
+dd.col <- rainbow(length(dd))
+names(dd.col)  <- dd
+
+autoALL78 <- mutate(autoALL78, id = rownames(autoALL78))
+```
+
+Ergebnisse der automatischen Triggersuche für die Pilotkliniken im Monat Juli und August für alle entlassenen Behandlungsfälle
+
+```{r Ergebnisse automatische Triggersuche Pilotkliniken 07/08/2018}
+#number of visits trigger were found
+length(unique(autoALL78$Fallnummer))
+#build a dateframe that contains table output from triggertype quantity distribution
+df.mengeTriggerTypAuto<-as.data.frame(as.matrix(table(autoALL78$variable)))
+#needs to be set dynamically later, since the trigger list is based on factor output: factor(df.mengeTriggerTypAuto$variable)
+df.mengeTriggerTypAuto$TriggerTyp<-c("G1","G2","G3","G4","G7","G8","G14","G15","M1","M2","M3","M4","M5","M11","K3","K4","K13","K14","K15","K16","I1","I3")
+#remove all rows from the df with 0 in column TriggerMenge
+colnames(df.mengeTriggerTypAuto)[colnames(df.mengeTriggerTypAuto)=="V1"] <- "TriggerMenge"
+df.mengeTriggerTypAuto<-df.mengeTriggerTypAuto[order(-df.mengeTriggerTypAuto$TriggerMenge),]
+df.mengeTriggerTypAuto$percent<-with(df.mengeTriggerTypAuto, df.mengeTriggerTypAuto$TriggerMenge/(sum(df.mengeTriggerTypAuto$TriggerMenge))*100)
+df.mengeTriggerTypAuto$percent<-round(df.mengeTriggerTypAuto$percent, digits = 2)
+sum(df.mengeTriggerTypAuto$TriggerMenge)
+dd<-unique(df.mengeTriggerTypAuto$TriggerTyp)
+dd.col <- rainbow(length(dd))
+names(dd.col)  <- dd
+p.mengeTriggerTypAuto<-ggplot(df.mengeTriggerTypAuto, aes(x=reorder(TriggerTyp, -TriggerMenge), y=TriggerMenge)) + geom_bar(stat = "identity") + coord_flip() + xlab("Trigger Typ") + ylab(" Anzahl") + geom_text(aes(label = df.mengeTriggerTypAuto$TriggerMenge), size = 3.5, position=position_dodge(width=0.9), hjust= -0.1)
+print(p.mengeTriggerTypAuto)
+
+```
+
+Grafische Darstellung aller gefundenen Behandlungsfälle und die Anzahl und Kategorie der Trigger für die Pilotklinik 1 im Monat Juli 2018
+
+```{r Plot - automatisiete Ergebnisse Pilotklinik 1, Monat Juli, fig.height=10, fig.width=10}
+#to get a better viewable plot number of visits needs to be reduced! therefore split into month and clinic is done
+#juli, clinic 1
+autoMK1_7<-autoALL78[autoALL78$Fallnummer %in% MK1_7,]
+p.autoMK1_7<-ggplot(autoMK1_7, aes(factor(Fallnummer), value, fill = variable)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Automatische Trigger pro Fall - Pilotklinik 1, Juli 2018") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() + theme(axis.text.y=element_blank())
+print(p.autoMK1_7)
+table(autoMK1_7$variable)
+```
+
+Grafische Darstellung aller gefundenen Behandlungsfälle und die Anzahl und Kategorie der Trigger für die Pilotklinik G im Monat Juli 2018
+
+```{r Plot - automatisiete Ergebnisse Pilotklinik G, Monat Juli, fig.height=10, fig.width=10}
+#to get a better viewable plot number of visits needs to be reduced! therefore split into month and clinic is done
+#juli, clinic 1
+autoMKG_7<-autoALL78[autoALL78$Fallnummer %in% MKG_7,]
+p.autoMKG_7<-ggplot(autoMKG_7, aes(factor(Fallnummer), value, fill = variable)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Automatische Trigger pro Fall - Pilotklinik G, Juli 2018") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() + theme(axis.text.y=element_blank())
+print(p.autoMKG_7)
+table(autoMKG_7$variable)
+```
+
+Grafische Darstellung aller gefundenen Behandlungsfälle und die Anzahl und Kategorie der Trigger für die Pilotklinik 1 im Monat August 2018
+
+```{r Plot - automatisiete Ergebnisse Pilotklinik 1, Monat August, fig.height=10, fig.width=10}
+autoMK1_8<-autoALL78[autoALL78$Fallnummer %in% MK1_8,]
+p.autoMK1_8<-ggplot(autoMK1_8, aes(factor(Fallnummer), value, fill = variable)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Automatische Trigger pro Fall - Pilotklinik 1, August 2018") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() + theme(axis.text.y=element_blank())
+print(p.autoMK1_8)
+table(autoMK1_8$variable)
+#ggarrange(p.autoMK1_8 ,t.autoMK1_8 ,ncol = 2, nrow = 1)
+``` 
+Grafische Darstellung aller gefundenen Behandlungsfälle und die Anzahl und Kategorie der Trigger für die Pilotklinik G im Monat August 2018
+```{r Plot - automatisiete Ergebnisse Pilotklinik G, Monat August, fig.height=10, fig.width=10}
+#to get a better viewable plot number of visits needs to be reduced! therefore split into month and clinic is done
+#juli, clinic 1
+autoMKG_8<-autoALL78[autoALL78$Fallnummer %in% MKG_8,]
+p.autoMKG_8<-ggplot(autoMKG_8, aes(factor(Fallnummer), value, fill = variable)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Automatische Trigger pro Fall - Pilotklinik G, August 2018") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() + theme(axis.text.y=element_blank())
+p.autoMKG_8
+table(autoMKG_8$variable)
+```
+
+# Vergleich der beiden Methoden: automatisch versus manuell
+
+Im Folgenden werden die manuell und die automatisch ermittelten Trigger miteinander verglichen. Da die Automatisierung nurfür eine Teilmenge der 49 Trigger erfolgte, muss dieser Vergleich auch nur für diese Teilmenge von 24 Trigger stattfinden.
+
+Daher wird zunächst ein Subset der Ergebnismenge der manuellen Methode erstellt:
+
+```{r Einschränkung der Ergebnismenge der manuellen Reviews für die 24 automatisierten Trigger}
+manuellMeltTrigger78<-manuellMeltTriggerTRUE[manuellMeltTriggerTRUE$Fallnummer %in% compareFallNrP21, ]
+manuellMeltTrigger78Limit<-manuellMeltTrigger78[manuellMeltTrigger78$variable %in% autoTrigger, ]
+manuellMeltTrigger78Limit[manuellMeltTrigger78Limit=="TRUE"]<-1
+manuellMeltTrigger78Limit$value <- as.integer(manuellMeltTrigger78Limit$value)
+
+manuellMeltTriggerHarm78<-manuellMeltTriggerHarm[manuellMeltTriggerHarm$Fallnummer %in% compareFallNrP21, ]
+manuellMeltTriggerHarm78Limit<-manuellMeltTriggerHarm78[manuellMeltTriggerHarm78$variable %in% autoTrigger, ]
+manuellMeltTriggerHarm78Limit[manuellMeltTriggerHarm78Limit=="TRUE"]<-1
+manuellMeltTriggerHarm78Limit$value <- as.integer(manuellMeltTriggerHarm78Limit$value)
+```
+
+```{r Vorbereitung automatische Ergebnisse für Plot}
+autoCompareHarm<-autoCompare[autoCompare$Fallnummer %in% manuellMeltTriggerHarm$Fallnummer, ]
+mergeIDEingabe<-subset(manuellUNIQUE, select = c("Fallnummer", "IDEingabe"))
+autoCompare<-merge(autoCompare,mergeIDEingabe)
+autoCompareHarm<-merge(autoCompareHarm,mergeIDEingabe)
+```
+
+```{r Plot Vergleich}
+
+#ensure  coloring for the plot
+dd<-c("G1", "G4", "G7", "G14", "G15", "M5", "M11", "K2", "K3", "K4", "K13", "K14", "K16", "I1", "I3")
+dd.col<-c("#e6194B", "#800000", "#f58231", "#ffe119" ,"#bfef45" ,"#3cb44b", "#42d4f4" ,"#aaffc3", "#4363d8", "#000075", "#911eb4" ,"#f032e6", "#e6beff" ,"#a9a9a9", "#9A6324")
+#dd<-unique(autoTrigger)
+#dd.col <- rainbow(length(dd))
+
+names(dd.col)<-dd
+
+p.manuellMeltTrigger78Limit<-ggplot(manuellMeltTrigger78Limit, aes(factor(unlist(IDEingabe)), value, fill = variable)) +geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Anonymisierte Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Manuelle Ergebnisse - Trigger pro Fall") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() 
+print(p.manuellMeltTrigger78Limit)
+
+t.manuellMeltTrigger78Limit<-spread(manuellMeltTrigger78Limit, variable, value, fill = 0)
+t.manuellMeltTrigger78Limit <- subset( t.manuellMeltTrigger78Limit, select = -Fallnummer)
+t.manuellMeltTrigger78Limit <- subset( t.manuellMeltTrigger78Limit, select = -Tage)
+t.manuellMeltTrigger78Limit<-adorn_totals(t.manuellMeltTrigger78Limit, where = "row")
+kable(t.manuellMeltTrigger78Limit, format = "latex",booktabs = T, caption = "Manuelle Ergebnisse - Trigger pro Fall")  %>%
+kable_styling(latex_options = c("striped"))  %>% column_spec(1:1, bold = T)
+
+p.manuellMeltTrigger78HarmLimit<-ggplot(manuellMeltTriggerHarm78Limit, aes(factor(unlist(IDEingabe)), value, fill = variable)) +geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Anonymisierte Fallnummern") + ylab("Anzahl an Triggern pro Fall") + ggtitle("Manuelle Ergebnisse - Trigger pro Fälle mit Schaden") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() 
+print(p.manuellMeltTrigger78HarmLimit)
+
+t.manuellMeltTriggerHarm78Limit<-spread(manuellMeltTriggerHarm78Limit, variable, value, fill = 0)
+t.manuellMeltTriggerHarm78Limit <- subset( t.manuellMeltTriggerHarm78Limit, select = -Fallnummer )
+t.manuellMeltTriggerHarm78Limit <- subset( t.manuellMeltTriggerHarm78Limit, select = -Tage)
+t.manuellMeltTriggerHarm78Limit<-adorn_totals(t.manuellMeltTriggerHarm78Limit, where = "row")
+kable(t.manuellMeltTriggerHarm78Limit, format = "latex",booktabs = T, caption = "Manuelle Ergebnisse - Trigger pro Fall mit Schaden")  %>%
+kable_styling(latex_options = c("striped"))  %>% column_spec(1:1, bold = T) %>%
+  row_spec(c(7,9,18,19), bold = T, color = "white", background = "#D7261E")
+
+
+p.autoTrigger<-ggplot(autoCompare, aes(factor(IDEingabe), value, fill = variable)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Anonymisierte Fallnummern") + ylab("Triggern pro Fall, kategorisiert") + ggtitle("Trigger pro Fall - Automatisiert gefunden") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() 
+print(p.autoTrigger)
+
+t.autoCompare<-spread(autoCompare, variable, value, fill = 0)
+t.autoCompare <- subset( t.autoCompare, select = -Fallnummer )
+t.autoCompare<-adorn_totals(t.autoCompare, where = "row")
+kable(t.autoCompare, format = "latex",booktabs = T, caption = "Automatische Ergebnisse - Trigger pro Fall")  %>%
+kable_styling(latex_options = c("striped"))  %>% column_spec(1:1, bold = T)
+
+p.autoTriggerHarm<-ggplot(autoCompareHarm, aes(factor(IDEingabe), value, fill = variable)) + geom_bar(stat="identity",position = position_stack(reverse = TRUE)) +scale_fill_manual("Legend", values = dd.col) + xlab("Anonymisierte Fallnummern") + ylab("Trigger pro Fall für Fälle mit Schaden") + ggtitle("Trigger pro Fall mit Schaden - Automatisiert gefunden") + guides(fill=guide_legend(title="Trigger gemäß GTT")) + coord_flip() 
+print(p.autoTriggerHarm)
+
+t.autoCompareHarm<-spread(autoCompareHarm, variable, value, fill = 0)
+t.autoCompareHarm <- subset( t.autoCompareHarm, select = -Fallnummer )
+t.autoCompareHarm<-adorn_totals(t.autoCompareHarm, where = "row")
+k.t.autoCompareHarm<-kable(t.autoCompareHarm, format = "latex",booktabs = T, caption = "Automatische Ergebnisse - Trigger pro Fall mit Schaden")  %>%
+kable_styling(latex_options = c("striped")) %>% column_spec(1:1, bold = T) 
+
+```
